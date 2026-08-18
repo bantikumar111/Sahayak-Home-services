@@ -34,7 +34,10 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Mobile-first low-bandwidth React app runs on a different port during dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten this to your real frontend origin in production
+    allow_origins=[
+        "http://localhost:3000",
+        "https://sahayak-frontend-p2zj.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
