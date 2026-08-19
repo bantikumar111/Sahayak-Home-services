@@ -3,8 +3,16 @@
 // base URL (e.g. localhost -> production) in exactly one place.
 import axios from "axios";
 
+// Use the environment variable when provided. For production builds, if
+// `REACT_APP_API_URL` is not set, default to the deployed backend URL so the
+// frontend contacts the correct host after deployment.
+const defaultBase =
+  process.env.NODE_ENV === "production"
+    ? "https://sahayak-home-services.onrender.com"
+    : "http://localhost:8000";
+
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:8000",
+  baseURL: process.env.REACT_APP_API_URL || defaultBase,
   headers: { "Content-Type": "application/json" },
 });
 
