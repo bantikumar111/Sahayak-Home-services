@@ -32,13 +32,27 @@ os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Mobile-first low-bandwidth React app runs on a different port during dev
+# Configure CORS origins via environment variable so deployed instances
+# can be updated without changing code. ALLOWED_ORIGINS should be a
+# comma-separated list (e.g. "https://example.com,http://localhost:3000").
+# If set to "*" (or contains "*") a wildcard origin will be used and
+# credentials will be disabled (browsers block wildcard + credentials).
+allowed_origins_env = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,https://sahayak-frontend-p2zj.onrender.com",
+)
+if allowed_origins_env.strip() == "*" or "*" in [o.strip() for o in allowed_origins_env.split(",")]:
+    allow_origins = ["*"]
+    allow_credentials_flag = False
+else:
+    allow_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    # keep credentials enabled by default when specific origins are configured
+    allow_credentials_flag = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://sahayak-frontend-p2zj.onrender.com",
-    ],
-    allow_credentials=True,
+    allow_origins=allow_origins,
+    allow_credentials=allow_credentials_flag,
     allow_methods=["*"],
     allow_headers=["*"],
 )
