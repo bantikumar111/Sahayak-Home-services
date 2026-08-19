@@ -82,7 +82,20 @@ def list_workers(
     if lat is None or lng is None:
         cursor = cursor.sort("rating", -1)
         
-    return serialize_many(list(cursor))
+    results = list(cursor)
+    
+    # Fallback: if nearby search yielded 0 results and location was specified, retry without location restriction
+    if not results and (lat is not None or lng is not None):
+        fallback_query = {}
+        if service:
+            fallback_query["skills.service"] = service
+        if min_rating is not None:
+            fallback_query["rating"] = {"$gte": min_rating}
+        if max_price is not None and service:
+            fallback_query["skills"] = {"$elemMatch": {"service": service, "price": {"$lte": max_price}}}
+        results = list(workers_col.find(fallback_query).sort("rating", -1))
+        
+    return serialize_many(results)
 
 
 @router.get("/{worker_id}")

@@ -27,7 +27,8 @@ services = [
     {"id": "home-tutor", "name": "Home Tutor", "icon": "📚", "description": "Private teaching and tutoring.", "color": "#673ab7"},
     {"id": "beauty-services", "name": "Beauty Services", "icon": "💅", "description": "Salon at home, makeup, and hair.", "color": "#e91e63"},
     {"id": "personal-trainer", "name": "Personal Trainer", "icon": "🏋️", "description": "Fitness coaching at home.", "color": "#ffc107"},
-    {"id": "driver", "name": "Driver Service", "icon": "🚗", "description": "Hire a driver for your car.", "color": "#3f51b5"}
+    {"id": "driver", "name": "Driver Service", "icon": "🚗", "description": "Hire a driver for your car.", "color": "#3f51b5"},
+    {"id": "dog-walking", "name": "Dog walking", "icon": "🐕", "description": "Dog walking and pet care.", "color": "#4caf50"}
 ]
 
 for s in services:

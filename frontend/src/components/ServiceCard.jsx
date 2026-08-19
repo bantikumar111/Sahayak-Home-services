@@ -10,6 +10,20 @@ const CATEGORY_META = {
   cleaning: { icon: "🧹", color: "#2f9e44", label: "Cleaning" },
 };
 
+function hexToRgba(hexStr, alpha = 0.1) {
+  if (!hexStr || typeof hexStr !== 'string') return `rgba(139, 92, 246, ${alpha})`;
+  let cleanHex = hexStr.replace('#', '');
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex.split('').map(c => c + c).join('');
+  }
+  if (cleanHex.length !== 6) return `rgba(139, 92, 246, ${alpha})`;
+  const r = parseInt(cleanHex.slice(0, 2), 16);
+  const g = parseInt(cleanHex.slice(2, 4), 16);
+  const b = parseInt(cleanHex.slice(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(139, 92, 246, ${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function ServiceCard({ service, selected, onClick }) {
   // Backwards compatibility: if service is a string, it's just the ID
   const isString = typeof service === 'string';
@@ -26,7 +40,7 @@ export default function ServiceCard({ service, selected, onClick }) {
       onClick={() => onClick(id)}
     >
       <div style={{
-        background: `rgba(${parseInt(meta.color.slice(1,3),16)}, ${parseInt(meta.color.slice(3,5),16)}, ${parseInt(meta.color.slice(5,7),16)}, 0.1)`,
+        background: hexToRgba(meta.color, 0.1),
         width: "48px",
         height: "48px",
         borderRadius: "16px",

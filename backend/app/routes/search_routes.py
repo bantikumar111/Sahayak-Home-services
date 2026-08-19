@@ -46,7 +46,10 @@ KEYWORD_MAPPING = {
     "gym": "personal-trainer",
     "trainer": "personal-trainer",
     "drive": "driver",
-    "car": "driver"
+    "car": "driver",
+    "dog": "dog-walking",
+    "walk": "dog-walking",
+    "pet": "dog-walking"
 }
 
 @router.get("/")

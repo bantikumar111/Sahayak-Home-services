@@ -17,7 +17,7 @@ const DEFAULT_SERVICES = [
   { id: "microwave-repair", name: "Microwave Repair", icon: "🍕", description: "Microwave repair services", color: "#f59e0b" },
   { id: "geyser-repair", name: "Geyser Repair", icon: "🚿", description: "Water heater repair", color: "#ef4444" },
   { id: "water-purifier", name: "Water Purifier (RO) Service", icon: "💧", description: "Water purifier maintenance", color: "#3b82f6" },
-  { id: "cctv-installation", name: "CCTV Installation", icon: "📹", description: "CCTV camera installation", color: "#64748b" },
+  { id: "cctv", name: "CCTV Installation", icon: "📹", description: "CCTV camera installation", color: "#64748b" },
   { id: "pest-control", name: "Pest Control", icon: "🐛", description: "Pest control services", color: "#059669" },
   { id: "gardening", name: "Gardening", icon: "🌱", description: "Garden maintenance", color: "#84cc16" },
   { id: "packers-movers", name: "Packers & Movers", icon: "📦", description: "Packing and moving services", color: "#d97706" },
@@ -26,7 +26,7 @@ const DEFAULT_SERVICES = [
   { id: "home-tutor", name: "Home Tutor", icon: "📚", description: "Home tutoring services", color: "#dc2626" },
   { id: "beauty-services", name: "Beauty Services", icon: "💄", description: "Beauty and grooming services", color: "#ec4899" },
   { id: "personal-trainer", name: "Personal Trainer", icon: "💪", description: "Fitness training services", color: "#f97316" },
-  { id: "driver-service", name: "Driver Service", icon: "🚗", description: "Professional driver services", color: "#0ea5e9" },
+  { id: "driver", name: "Driver Service", icon: "🚗", description: "Professional driver services", color: "#0ea5e9" },
   { id: "dog-walking", name: "Dog walking", icon: "🐕", description: "Dog walking and pet care", color: "#d97706" },
 ];
 
