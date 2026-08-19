@@ -34,14 +34,37 @@ def create_indexes():
     services_col.create_index([("name", "text"), ("description", "text")])
 
     # Users: fast phone lookup + uniqueness for auth
-    users_col.create_index([("phone", ASCENDING)], unique=True)
+    # Ensure unique phone index only enforces uniqueness when a phone is present.
+    # Older deployments may have created a non-sparse unique index which rejects
+    # inserts that don't include `phone` (multiple nulls). If such an index
+    # exists, drop it and recreate as sparse.
+    try:
+        idx_info = users_col.index_information()
+        if "phone_1" in idx_info and not idx_info["phone_1"].get("sparse", False):
+            try:
+                users_col.drop_index("phone_1")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    users_col.create_index([("phone", ASCENDING)], unique=True, sparse=True)
 
     # Workers: 2dsphere index enables $near / $geoWithin geospatial queries.
     # location must be stored in GeoJSON format: {"type": "Point", "coordinates": [lng, lat]}
     workers_col.create_index([("location", GEOSPHERE)])
     # Speeds up filtering workers by the service they offer
     workers_col.create_index([("skills.service", ASCENDING)])
-    workers_col.create_index([("phone", ASCENDING)], unique=True)
+    # Same treatment for workers collection
+    try:
+        idx_info = workers_col.index_information()
+        if "phone_1" in idx_info and not idx_info["phone_1"].get("sparse", False):
+            try:
+                workers_col.drop_index("phone_1")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    workers_col.create_index([("phone", ASCENDING)], unique=True, sparse=True)
     # Text index for searching workers
     workers_col.create_index([("name", "text"), ("skills.service", "text")])
 

@@ -8,6 +8,8 @@ Flow:
 4. GET  /users/profile/{user_id}  -> fetch a user's profile
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File
+import traceback
+from pymongo.errors import DuplicateKeyError
 import shutil
 import os
 import uuid
@@ -21,24 +23,35 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.post("/register")
 def register_user(payload: UserRegister):
-    existing = users_col.find_one({"email": payload.email})
-    if existing:
-        raise HTTPException(status_code=409, detail="Email already registered. Please login instead.")
+    try:
+        existing = users_col.find_one({"email": payload.email})
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already registered. Please login instead.")
 
-    doc = {
-        "name": payload.name,
-        "email": payload.email,
-        "password_hash": get_password_hash(payload.password),
-        "role": "user",
-        "address": payload.address,
-        "location": (
-            {"type": "Point", "coordinates": [payload.location.lng, payload.location.lat]}
-            if payload.location else None
-        ),
-        "created_at": now_utc(),
-    }
-    result = users_col.insert_one(doc)
-    return {"message": "User registered", "user_id": str(result.inserted_id)}
+        doc = {
+            "name": payload.name,
+            "email": payload.email,
+            "password_hash": get_password_hash(payload.password),
+            "role": "user",
+            "address": payload.address,
+            "location": (
+                {"type": "Point", "coordinates": [payload.location.lng, payload.location.lat]}
+                if payload.location else None
+            ),
+            "created_at": now_utc(),
+        }
+        result = users_col.insert_one(doc)
+        return {"message": "User registered", "user_id": str(result.inserted_id)}
+    except DuplicateKeyError as dk:
+        # Mongo duplicate key (unique index violation like phone/email)
+        raise HTTPException(status_code=409, detail=str(dk))
+    except HTTPException:
+        # pass through HTTPExceptions
+        raise
+    except Exception as e:
+        # Log full traceback server-side for debugging, and return a safe error
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/login")
