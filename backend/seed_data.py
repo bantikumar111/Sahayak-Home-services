@@ -17,11 +17,7 @@ def now():
 def run():
     create_indexes()
 
-    # Clear existing sample data (safe for a fresh dev DB)
-    for col in (users_col, workers_col, bookings_col, reviews_col, messages_col, services_col):
-        col.delete_many({})
-
-    # --- Services ---
+    # --- Services (upsert by id) ---
     services = [
         {"id": "plumber", "name": "Plumber", "icon": "🔧", "description": "Plumbing repairs and installations", "color": "#3b82f6"},
         {"id": "electrician", "name": "Electrician", "icon": "⚡", "description": "Electrical repairs and installations", "color": "#f59e0b"},
@@ -46,7 +42,8 @@ def run():
         {"id": "driver", "name": "Driver Service", "icon": "🚗", "description": "Professional driver services", "color": "#0ea5e9"},
         {"id": "dog-walking", "name": "Dog walking", "icon": "🐕", "description": "Dog walking and pet care", "color": "#d97706"},
     ]
-    services_col.insert_many(services)
+    for s in services:
+        services_col.update_one({"id": s["id"]}, {"$set": s}, upsert=True)
 
     # --- Users (NCR / Gurugram area coordinates) ---
     users = [
@@ -55,7 +52,12 @@ def run():
         {"name": "Priya Verma", "phone": "9876543211", "role": "user",
          "location": {"type": "Point", "coordinates": [77.4127, 28.6448]}, "created_at": now()},
     ]
-    user_ids = users_col.insert_many(users).inserted_ids
+    user_ids = []
+    for u in users:
+        users_col.update_one({"phone": u["phone"]}, {"$setOnInsert": u}, upsert=True)
+        found = users_col.find_one({"phone": u["phone"]})
+        if found:
+            user_ids.append(found["_id"])
 
     # --- Workers (Covering all 22 services with NCR coordinates) ---
     workers = [
@@ -192,7 +194,12 @@ def run():
          "experience": 4, "location": {"type": "Point", "coordinates": [77.0964, 28.4914]},
          "rating": 4.6, "total_reviews": 14, "created_at": now()},
     ]
-    worker_ids = workers_col.insert_many(workers).inserted_ids
+    worker_ids = []
+    for w in workers:
+        workers_col.update_one({"phone": w["phone"]}, {"$setOnInsert": w}, upsert=True)
+        found = workers_col.find_one({"phone": w["phone"]})
+        if found:
+            worker_ids.append(found["_id"])
 
     # --- Sample booking ---
     bookings_col.insert_one({

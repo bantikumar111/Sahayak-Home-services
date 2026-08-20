@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import BottomNav from "../components/BottomNav";
-import { getUserBookings, createReview, uploadImage, getUserUnreadCounts, cancelBooking } from "../services/api";
+import { getUserBookings, createReview, uploadImage, getUserUnreadCounts, cancelBooking, getImageUrl } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 function ReviewForm({ booking, onDone }) {
@@ -134,7 +134,7 @@ export default function Bookings() {
                     <div style={{
                       width: 40, height: 40, borderRadius: "50%", background: "var(--bg-gradient)",
                       display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold",
-                      backgroundImage: b.worker?.avatar ? `url(http://localhost:8000${b.worker.avatar})` : "none",
+                      backgroundImage: b.worker?.avatar ? `url(${getImageUrl(b.worker.avatar)})` : "none",
                       backgroundSize: "cover", backgroundPosition: "center"
                     }}>
                       {!b.worker?.avatar && (b.worker?.name?.[0] || "W").toUpperCase()}

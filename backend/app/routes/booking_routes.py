@@ -9,13 +9,14 @@ from app.utils.helpers import now_utc, to_object_id, serialize_doc, serialize_ma
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
+@router.post("")
 @router.post("/")
 def create_booking(payload: BookingCreate):
     user_oid = to_object_id(payload.user_id)
     worker_oid = to_object_id(payload.worker_id)
 
     if not users_col.find_one({"_id": user_oid}) and not workers_col.find_one({"_id": user_oid}):
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User account not found. Please log in or register first.")
     if not workers_col.find_one({"_id": worker_oid}):
         raise HTTPException(status_code=404, detail="Worker not found")
 

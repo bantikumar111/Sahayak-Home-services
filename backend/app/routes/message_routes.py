@@ -1,23 +1,27 @@
 """
-Message routes: basic request/poll chat between a user and a worker.
-(No websockets for MVP simplicity — frontend polls GET on an interval.)
+Message routes: request/poll and WebSocket chat between a user and a worker.
 """
-from fastapi import APIRouter, HTTPException
+import json
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from app.config.db import messages_col, users_col, workers_col
 from app.models.message import MessageCreate, MessageReadUpdate
 from app.utils.helpers import now_utc, to_object_id, serialize_many
+from app.websocket import manager
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
 
 @router.post("/")
-def send_message(payload: MessageCreate):
+async def send_message(payload: MessageCreate):
     user_oid = to_object_id(payload.user_id)
     worker_oid = to_object_id(payload.worker_id)
 
-    if not users_col.find_one({"_id": user_oid}):
+    user_exists = users_col.find_one({"_id": user_oid}) or workers_col.find_one({"_id": user_oid})
+    if not user_exists:
         raise HTTPException(status_code=404, detail="User not found")
-    if not workers_col.find_one({"_id": worker_oid}):
+
+    worker_exists = workers_col.find_one({"_id": worker_oid}) or users_col.find_one({"_id": worker_oid})
+    if not worker_exists:
         raise HTTPException(status_code=404, detail="Worker not found")
 
     doc = {
@@ -35,37 +39,42 @@ def send_message(payload: MessageCreate):
     insert_result = messages_col.insert_one(doc)
     doc["_id"] = insert_result.inserted_id
     
-    # Broadcast to websocket if any clients are connected
-    import asyncio
     thread_id = f"{payload.user_id}_{payload.worker_id}"
     serialized_doc = serialize_many([doc])[0]
     
-    # Fire and forget the broadcast, it's ok if it fails or no one is listening
+    # Broadcast to websocket if any clients are connected
     try:
-        loop = asyncio.get_event_loop()
-        loop.create_task(manager.broadcast_to_thread(thread_id, serialized_doc))
-    except Exception:
-        pass
+        await manager.broadcast_to_thread(thread_id, serialized_doc)
+    except Exception as e:
+        print(f"Error broadcasting message to thread {thread_id}: {e}")
         
     return {"message": "Message sent", "data": serialized_doc}
 
 
 @router.get("/{user_id}/{worker_id}")
 def get_chat_thread(user_id: str, worker_id: str):
+    user_oid = to_object_id(user_id)
+    worker_oid = to_object_id(worker_id)
     cursor = messages_col.find({
-        "user_id": to_object_id(user_id),
-        "worker_id": to_object_id(worker_id),
+        "$or": [
+            {"user_id": user_oid, "worker_id": worker_oid},
+            {"user_id": user_id, "worker_id": worker_id},
+        ]
     }).sort("timestamp", 1)
     return serialize_many(list(cursor))
 
 
 @router.patch("/{user_id}/{worker_id}/read")
 def mark_thread_read(user_id: str, worker_id: str, payload: MessageReadUpdate):
+    user_oid = to_object_id(user_id)
+    worker_oid = to_object_id(worker_id)
+    user_filter = {"$in": [user_oid, user_id]}
+    worker_filter = {"$in": [worker_oid, worker_id]}
     if payload.viewer == "user":
         messages_col.update_many(
             {
-                "user_id": to_object_id(user_id),
-                "worker_id": to_object_id(worker_id),
+                "user_id": user_filter,
+                "worker_id": worker_filter,
                 "sender": "worker",
             },
             {"$set": {"read_by_user": True}}
@@ -73,8 +82,8 @@ def mark_thread_read(user_id: str, worker_id: str, payload: MessageReadUpdate):
     else:
         messages_col.update_many(
             {
-                "user_id": to_object_id(user_id),
-                "worker_id": to_object_id(worker_id),
+                "user_id": user_filter,
+                "worker_id": worker_filter,
                 "sender": "user",
             },
             {"$set": {"read_by_worker": True}}
@@ -84,9 +93,10 @@ def mark_thread_read(user_id: str, worker_id: str, payload: MessageReadUpdate):
 
 @router.get("/unread/user/{user_id}")
 def get_user_unread_counts(user_id: str):
+    user_oid = to_object_id(user_id)
     pipeline = [
         {"$match": {
-            "user_id": to_object_id(user_id),
+            "user_id": {"$in": [user_oid, user_id]},
             "sender": "worker",
             "$or": [{"read_by_user": False}, {"read_by_user": {"$exists": False}}]
         }},
@@ -98,9 +108,10 @@ def get_user_unread_counts(user_id: str):
 
 @router.get("/unread/worker/{worker_id}")
 def get_worker_unread_counts(worker_id: str):
+    worker_oid = to_object_id(worker_id)
     pipeline = [
         {"$match": {
-            "worker_id": to_object_id(worker_id),
+            "worker_id": {"$in": [worker_oid, worker_id]},
             "sender": "user",
             "$or": [{"read_by_worker": False}, {"read_by_worker": {"$exists": False}}]
         }},
@@ -110,10 +121,6 @@ def get_worker_unread_counts(worker_id: str):
     return [{"user_id": str(c["_id"]), "count": c["count"]} for c in counts]
 
 
-from fastapi import WebSocket, WebSocketDisconnect
-from app.websocket import manager
-import json
-
 @router.websocket("/ws/{user_id}/{worker_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, worker_id: str):
     thread_id = f"{user_id}_{worker_id}"
@@ -121,7 +128,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, worker_id: str)
     try:
         while True:
             data = await websocket.receive_text()
-            # Expecting JSON data: {"sender": "user" or "worker", "message": "hello", "image": "optional_url"}
             payload = json.loads(data)
             
             user_oid = to_object_id(user_id)
@@ -147,3 +153,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, worker_id: str)
             
     except WebSocketDisconnect:
         manager.disconnect(websocket, thread_id)
+    except Exception as e:
+        manager.disconnect(websocket, thread_id)
+

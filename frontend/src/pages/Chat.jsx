@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { getChatThread, sendMessage, uploadImage, markThreadRead } from "../services/api";
+import { getChatThread, sendMessage, uploadImage, markThreadRead, getWsUrl, getImageUrl } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-const POLL_MS = 4000; // low-bandwidth friendly polling interval
+const POLL_MS = 3000;
 
 export default function Chat() {
   const { workerId } = useParams();
@@ -22,30 +22,60 @@ export default function Chat() {
 
   const workerName = routerLocation.state?.workerName || "Worker";
 
+  const fetchThread = useCallback(() => {
+    if (!user?._id || !workerId) return;
+    getChatThread(user._id, workerId)
+      .then((res) => {
+        if (res.data && Array.isArray(res.data)) {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m._id));
+            const newMsgs = res.data.filter((m) => !existingIds.has(m._id));
+            if (newMsgs.length === 0 && prev.length === res.data.length) return prev;
+            return res.data;
+          });
+        }
+        markThreadRead(user._id, workerId, "user").catch(() => {});
+      })
+      .catch((err) => console.error("Error fetching chat thread:", err));
+  }, [user?._id, workerId]);
+
   useEffect(() => {
-    getChatThread(user._id, workerId).then((res) => {
-      setMessages(res.data);
-      markThreadRead(user._id, workerId, "user").catch(() => {});
-    });
-    
-    // Determine WS URL based on current host to support various environments
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // If backend is on 8000 (local dev), use it. Otherwise assume same origin.
-    const wsHost = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-    const socket = new WebSocket(`${wsProtocol}//${wsHost}/messages/ws/${user._id}/${workerId}`);
-    
-    socket.onmessage = (event) => {
-      const newMsg = JSON.parse(event.data);
-      setMessages((prev) => [...prev, newMsg]);
-    };
-    
-    setWs(socket);
-    
+    if (!user?._id || !workerId) return;
+
+    fetchThread();
+
+    // Setup polling fallback for robust real-time updates across environments
+    const interval = setInterval(fetchThread, POLL_MS);
+
+    // Setup WebSocket connection to backend
+    let socket = null;
+    try {
+      const wsUrl = getWsUrl(`/messages/ws/${user._id}/${workerId}`);
+      socket = new WebSocket(wsUrl);
+
+      socket.onmessage = (event) => {
+        try {
+          const newMsg = JSON.parse(event.data);
+          setMessages((prev) => {
+            if (prev.some((m) => m._id === newMsg._id)) return prev;
+            return [...prev, newMsg];
+          });
+          markThreadRead(user._id, workerId, "user").catch(() => {});
+        } catch (e) {
+          console.error("Error parsing WS message:", e);
+        }
+      };
+
+      setWs(socket);
+    } catch (e) {
+      console.error("WebSocket setup error:", e);
+    }
+
     return () => {
-      socket.close();
+      clearInterval(interval);
+      if (socket) socket.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workerId]);
+  }, [user?._id, workerId, fetchThread]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,6 +84,7 @@ export default function Chat() {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!draft.trim() && !imageFile) return;
+    if (!user?._id) return;
     
     setSending(true);
     let imageUrl = null;
@@ -70,19 +101,30 @@ export default function Chat() {
       setDraft("");
       setImageFile(null);
       
+      let sentViaWs = false;
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ sender: "user", message: text, image: imageUrl }));
-        setSending(false);
-      } else {
-        // Fallback to REST API if WS is disconnected
+        try {
+          ws.send(JSON.stringify({ sender: "user", message: text, image: imageUrl }));
+          sentViaWs = true;
+        } catch (err) {
+          console.warn("WebSocket send failed, falling back to REST API:", err);
+        }
+      }
+      
+      if (!sentViaWs) {
         const res = await sendMessage({ user_id: user._id, worker_id: workerId, sender: "user", message: text, image: imageUrl });
         if (res.data && res.data.data) {
-          setMessages((prev) => [...prev, res.data.data]);
+          const newMsg = res.data.data;
+          setMessages((prev) => {
+            if (prev.some((m) => m._id === newMsg._id)) return prev;
+            return [...prev, newMsg];
+          });
         }
-        setSending(false);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error sending message:", err);
+      alert("Failed to send message. Please try again.");
+    } finally {
       setSending(false);
     }
   };
@@ -110,10 +152,10 @@ export default function Chat() {
             </div>
           )}
           {messages.map((m) => (
-            <div key={m._id} className={`msg-bubble ${m.sender === "user" ? "me" : "them"}`}>
+            <div key={m._id || m.timestamp} className={`msg-bubble ${m.sender === "user" ? "me" : "them"}`}>
               {m.image && (
                 <div style={{ marginBottom: 4 }}>
-                  <img src={`http://localhost:8000${m.image}`} alt="Attachment" style={{ maxWidth: "100%", borderRadius: "8px" }} />
+                  <img src={getImageUrl(m.image)} alt="Attachment" style={{ maxWidth: "100%", borderRadius: "8px" }} />
                 </div>
               )}
               {m.message && <div style={{ marginBottom: 4 }}>{m.message}</div>}
@@ -158,3 +200,4 @@ export default function Chat() {
     </>
   );
 }
+

@@ -16,6 +16,23 @@ const API = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+export const getWsUrl = (path) => {
+  const baseURL = API.defaults.baseURL || defaultBase;
+  const wsUrl = baseURL.replace(/^http/, "ws");
+  const cleanBase = wsUrl.endsWith("/") ? wsUrl.slice(0, -1) : wsUrl;
+  const cleanPath = path.startsWith("/") ? path : "/" + path;
+  return `${cleanBase}${cleanPath}`;
+};
+
+export const getImageUrl = (path) => {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const baseURL = API.defaults.baseURL || defaultBase;
+  const cleanBase = baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL;
+  const cleanPath = path.startsWith("/") ? path : "/" + path;
+  return `${cleanBase}${cleanPath}`;
+};
+
 // ---------- Services ----------
 export const getServices = () => API.get('/services/');
 export const createService = (data) => API.post('/services/', data);
@@ -49,7 +66,7 @@ export const getWorkerById = (workerId) => API.get(`/workers/${workerId}`);
 export const updateWorkerSkills = (workerId, skills) => API.patch(`/workers/${workerId}/skills`, { skills });
 
 // ---------- Bookings ----------
-export const createBooking = (data) => API.post("/bookings/", data);
+export const createBooking = (data) => API.post("/bookings", data);
 export const getUserBookings = (userId) => API.get(`/bookings/user/${userId}`);
 export const getWorkerBookings = (workerId) => API.get(`/bookings/worker/${workerId}`);
 export const updateBookingStatus = (bookingId, status) =>

@@ -36,10 +36,18 @@ export default function Booking() {
   const handleBook = async (e) => {
     e.preventDefault();
     setError("");
+
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      setError("You must be logged in to book a service. Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1500);
+      return;
+    }
+
     setLoading(true);
     try {
       await createBooking({
-        user_id: user._id,
+        user_id: userId,
         worker_id: workerId,
         service,
         price: bargainPrice ? Number(bargainPrice) : selectedSkill?.price,
@@ -50,7 +58,13 @@ export default function Booking() {
       setSuccess(true);
       setTimeout(() => navigate("/bookings"), 1200);
     } catch (err) {
-      setError(err.response?.data?.detail || "Booking failed. Please try again.");
+      const serverDetail = err.response?.data?.detail;
+      if (serverDetail === "User not found") {
+        setError("Your account or session was not found in the database. Please log in or sign up again.");
+        setTimeout(() => navigate("/login"), 2000);
+      } else {
+        setError(serverDetail || "Booking failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -78,7 +92,21 @@ export default function Booking() {
           <div className="success-banner">Booking sent! The worker will confirm shortly.</div>
         ) : (
           <form onSubmit={handleBook}>
-            {error && <div className="error-banner">{error}</div>}
+            {error && (
+              <div className="error-banner" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
+                <div>⚠️ {error}</div>
+                {(error.includes("log in") || error.includes("User") || error.includes("session") || error.includes("registered")) && (
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    style={{ padding: "8px 16px", fontSize: "0.85rem", marginTop: "4px", borderRadius: "8px" }}
+                    onClick={() => navigate("/login")}
+                  >
+                    🔑 Click here to Login or Register
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="field">
               <label htmlFor="service">Service</label>

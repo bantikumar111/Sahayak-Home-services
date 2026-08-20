@@ -71,6 +71,12 @@ export default function WorkerList() {
             <p style={{ color: "var(--text-muted)", margin: 0 }}>Find the best {meta.label.toLowerCase()}s nearby</p>
           </div>
           
+          {error && (
+            <div style={{ color: "var(--danger)", margin: "0 20px 16px 20px", background: "rgba(239, 68, 68, 0.1)", padding: "12px", borderRadius: "8px", fontSize: "0.9rem" }}>
+              ⚠️ {error}
+            </div>
+          )}
+          
           <div className="card" style={{ marginBottom: 16, padding: 16, margin: "0 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h3 style={{ margin: 0, fontSize: "1rem" }}>Filters</h3>

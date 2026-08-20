@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import WorkerBottomNav from "../components/WorkerBottomNav";
-import { getWorkerBookings, updateBookingStatus, getWorkerUnreadCounts } from "../services/api";
+import { getWorkerBookings, updateBookingStatus, getWorkerUnreadCounts, getImageUrl } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -90,7 +90,7 @@ export default function WorkerDashboard() {
                     <div style={{
                       width: 40, height: 40, borderRadius: "50%", background: "var(--bg-gradient)",
                       display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold",
-                      backgroundImage: b.customer?.avatar ? `url(http://localhost:8000${b.customer.avatar})` : "none",
+                      backgroundImage: b.customer?.avatar ? `url(${getImageUrl(b.customer.avatar)})` : "none",
                       backgroundSize: "cover", backgroundPosition: "center"
                     }}>
                       {!b.customer?.avatar && (b.customer?.name?.[0] || "U").toUpperCase()}
